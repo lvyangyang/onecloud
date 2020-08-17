@@ -97,14 +97,15 @@ func (manager *SClouduserManager) GetIVirtualModelManager() db.IVirtualModelMana
 	return manager.GetVirtualObject().(db.IVirtualModelManager)
 }
 
-func (manager *SClouduserManager) FetchParentId(ctx context.Context, data jsonutils.JSONObject) string {
+func (manager *SClouduserManager) FetchUniqValues(ctx context.Context, data jsonutils.JSONObject) jsonutils.JSONObject {
 	accountId, _ := data.GetString("cloudaccount_id")
-	return accountId
+	return jsonutils.Marshal(map[string]string{"cloudaccount_id": accountId})
 }
 
-func (manager *SClouduserManager) FilterByParentId(q *sqlchemy.SQuery, parentId string) *sqlchemy.SQuery {
-	if len(parentId) > 0 {
-		q = q.Equals("cloudaccount_id", parentId)
+func (manager *SClouduserManager) FilterByUniqValues(q *sqlchemy.SQuery, values jsonutils.JSONObject) *sqlchemy.SQuery {
+	accountId, _ := values.GetString("cloudaccount_id")
+	if len(accountId) > 0 {
+		q = q.Equals("cloudaccount_id", accountId)
 	}
 	return q
 }

@@ -1154,10 +1154,10 @@ func _doCreateItem(
 		return nil, httperrors.NewGeneralError(err)
 	}
 	// run name validation after validate create data
-	parentId := manager.FetchParentId(ctx, dataDict)
+	uniqValues := manager.FetchUniqValues(ctx, dataDict)
 	name, _ := dataDict.GetString("name")
 	if len(name) > 0 {
-		err = NewNameValidator(manager, ownerId, name, parentId)
+		err = NewNameValidator(manager, ownerId, name, uniqValues)
 		if err != nil {
 			return nil, err
 		}
