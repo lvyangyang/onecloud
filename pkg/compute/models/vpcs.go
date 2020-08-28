@@ -117,6 +117,17 @@ func (self *SVpc) GetNatgatewayCount() (int, error) {
 	return self.getNatgatewayQuery().CountWithError()
 }
 
+func (self *SVpc) GetDnsZones() ([]SDnsZone, error) {
+	sq := DnsZoneVpcManager.Query("dns_zone_id").Equals("vpc_id", self.Id)
+	q := DnsZoneManager.Query().In("id", sq.SubQuery())
+	dnsZones := []SDnsZone{}
+	err := db.FetchModelObjects(DnsZoneManager, q, &dnsZones)
+	if err != nil {
+		return nil, errors.Wrapf(err, "db.FetchModelObjects")
+	}
+	return dnsZones, nil
+}
+
 func (self *SVpc) GetDnsZoneCount() (int, error) {
 	sq := DnsZoneVpcManager.Query("dns_zone_id").Equals("vpc_id", self.Id)
 	q := DnsZoneManager.Query().In("id", sq.SubQuery())
@@ -815,6 +826,17 @@ func (self *SVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredent
 		err = natgateways[i].RealDelete(ctx, userCred)
 		if err != nil {
 			return errors.Wrapf(err, "delete natgateway %s failed", natgateways[i].GetId())
+		}
+	}
+
+	dnsZones, err := self.GetDnsZones()
+	if err != nil {
+		return errors.Wrapf(err, "self.GetDnsZones")
+	}
+	for i := range dnsZones {
+		err = dnsZones[i].RemoveVpc(ctx, self.Id)
+		if err != nil {
+			return errors.Wrapf(err, "remove vpc from dns zone %s", dnsZones[i].Id)
 		}
 	}
 
