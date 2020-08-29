@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -163,13 +164,18 @@ func Getroute53ResourceRecordSet(opts *cloudprovider.DnsRecordSet) (*route53.Res
 	if opts.PolicyType == cloudprovider.DnsPolicyTypeSimple || opts.PolicyParams == nil {
 		return &resourceRecordSet, nil
 	}
-
-	var healthCheckId string
-	err := opts.PolicyParams.Unmarshal(&healthCheckId, "healthcheckid")
-	if err != nil {
-		return nil, errors.Wrapf(err, "%s Unmarshal(healthcheckid)", fmt.Sprintln(opts.PolicyParams))
+	// SetIdentifier ,可以通过externalId设置
+	if resourceRecordSet.SetIdentifier == nil {
+		resourceRecordSet.SetSetIdentifier(stringutils.UUID4())
 	}
-	if len(healthCheckId) > 0 {
+
+	// healthcheckid
+	if opts.PolicyParams.Contains("healthcheckid") {
+		var healthCheckId string
+		err := opts.PolicyParams.Unmarshal(&healthCheckId, "healthcheckid")
+		if err != nil {
+			return nil, errors.Wrapf(err, "%s Unmarshal(healthcheckid)", fmt.Sprintln(opts.PolicyParams))
+		}
 		resourceRecordSet.SetHealthCheckId(healthCheckId)
 	}
 
@@ -188,9 +194,15 @@ func Getroute53ResourceRecordSet(opts *cloudprovider.DnsRecordSet) (*route53.Res
 			return nil, errors.Wrapf(err, "%s Unmarshal(location)", fmt.Sprintln(opts.PolicyParams))
 		}
 		Geo := route53.GeoLocation{}
-		Geo.ContinentCode = &sGeo.ContinentCode
-		Geo.CountryCode = &sGeo.CountryCode
-		Geo.SubdivisionCode = &sGeo.SubdivisionCode
+		if len(sGeo.ContinentCode) > 0 {
+			Geo.ContinentCode = &sGeo.ContinentCode
+		}
+		if len(sGeo.CountryCode) > 0 {
+			Geo.CountryCode = &sGeo.CountryCode
+		}
+		if len(sGeo.SubdivisionCode) > 0 {
+			Geo.SubdivisionCode = &sGeo.SubdivisionCode
+		}
 		resourceRecordSet.SetGeoLocation(&Geo)
 	}
 
@@ -216,9 +228,9 @@ func Getroute53ResourceRecordSet(opts *cloudprovider.DnsRecordSet) (*route53.Res
 		if err != nil {
 			return nil, errors.Wrapf(err, "%s Unmarshal(weight)", fmt.Sprintln(opts.PolicyParams))
 		}
+		resourceRecordSet.SetWeight(Weight)
 	}
 	return &resourceRecordSet, nil
-
 }
 
 func (client *SAwsClient) AddDnsRecordSet(hostedZoneId string, opts *cloudprovider.DnsRecordSet) error {
@@ -353,6 +365,9 @@ func (self *SdnsRecordSet) GetPolicyParams() cloudprovider.TDnsPolicyTypeValue {
 	}
 	if self.Weight != nil {
 		policyinfo.Add(jsonutils.Marshal(self.Weight), "weight")
+	}
+	if policyinfo.Size() == 0 {
+		return nil
 	}
 	return policyinfo
 }
