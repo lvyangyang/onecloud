@@ -115,6 +115,9 @@ func (manager *SDnsZoneManager) ValidateCreateData(ctx context.Context, userCred
 			vpcIds = append(vpcIds, vpc.GetId())
 		}
 		input.VpcIds = vpcIds
+		if len(input.VpcIds) == 0 {
+			input.Status = api.DNS_ZONE_STATUS_AVAILABLE
+		}
 	case cloudprovider.PublicZone:
 		if len(input.CloudaccountId) > 0 {
 			_account, err := CloudaccountManager.FetchByIdOrName(userCred, input.CloudaccountId)
@@ -253,45 +256,84 @@ func (manager *SDnsZoneManager) FetchCustomizeColumns(
 		dnsZone := objs[i].(*SDnsZone)
 		dnsZoneIds[i] = dnsZone.Id
 	}
+
+	vpcMaps, recordMaps, managerMaps, err := manager.GetExtraMaps(dnsZoneIds)
+	if err != nil {
+		return rows
+	}
+
+	for i := range rows {
+		records, _ := recordMaps[dnsZoneIds[i]]
+		rows[i].DnsRecordsetCount = len(records)
+
+		vpcs, _ := vpcMaps[dnsZoneIds[i]]
+		rows[i].VpcCount = len(vpcs)
+		if len(vpcs) > 0 {
+			if len(vpcs[0].ManagerId) == 0 {
+				rows[i].Provider = api.CLOUD_PROVIDER_ONECLOUD
+			} else {
+				if manager, ok := managerMaps[vpcs[0].ManagerId]; ok {
+					rows[i].Provider = manager.Provider
+					rows[i].CloudaccountId = manager.CloudaccountId
+				}
+			}
+		}
+	}
+	return rows
+}
+
+func (manager *SDnsZoneManager) GetExtraMaps(dnsZoneIds []string) (map[string][]SVpc, map[string][]string, map[string]SCloudprovider, error) {
 	dnsVpcs := []SDnsZoneVpc{}
 	q := DnsZoneVpcManager.Query().In("dns_zone_id", dnsZoneIds)
 	err := db.FetchModelObjects(DnsZoneVpcManager, q, &dnsVpcs)
 	if err != nil {
-		return rows
+		return nil, nil, nil, errors.Wrapf(err, "db.FetchModelObjects.DnsZoneVpcManager")
 	}
-	dnsVpcMaps := map[string][]string{}
+	vpcIds := []string{}
 	for _, dnsVpc := range dnsVpcs {
-		_, ok := dnsVpcMaps[dnsVpc.DnsZoneId]
-		if !ok {
-			dnsVpcMaps[dnsVpc.DnsZoneId] = []string{}
+		if !utils.IsInStringArray(dnsVpc.VpcId, vpcIds) {
+			vpcIds = append(vpcIds, dnsVpc.VpcId)
 		}
-		dnsVpcMaps[dnsVpc.DnsZoneId] = append(dnsVpcMaps[dnsVpc.DnsZoneId], dnsVpc.VpcId)
 	}
 	dnsRecords := []SDnsRecordSet{}
 	q = DnsRecordSetManager.Query().In("dns_zone_id", dnsZoneIds)
 	err = db.FetchModelObjects(DnsRecordSetManager, q, &dnsRecords)
 	if err != nil {
-		return rows
+		return nil, nil, nil, errors.Wrapf(err, "db.FetchModelObjects.DnsRecordSetManager")
 	}
 	dnsRecordMaps := map[string][]string{}
 	for _, record := range dnsRecords {
-		_, ok := dnsRecordMaps[record.DnsZoneId]
-		if !ok {
+		if _, ok := dnsRecordMaps[record.DnsZoneId]; !ok {
 			dnsRecordMaps[record.DnsZoneId] = []string{}
 		}
 		dnsRecordMaps[record.DnsZoneId] = append(dnsRecordMaps[record.DnsZoneId], record.Id)
 	}
-	for i := range rows {
-		vpcs, ok := dnsVpcMaps[dnsZoneIds[i]]
-		if ok {
-			rows[i].VpcCount = len(vpcs)
+	dnsVpcMaps := map[string][]SVpc{}
+	vpcMaps := map[string]SVpc{}
+	err = db.FetchStandaloneObjectsByIds(VpcManager, vpcIds, &vpcMaps)
+	if err != nil {
+		return nil, nil, nil, errors.Wrapf(err, "db.FetchStandaloneObjectsByIds.VpcManager")
+	}
+	for _, dnsVpc := range dnsVpcs {
+		if _, ok := dnsVpcMaps[dnsVpc.DnsZoneId]; !ok {
+			dnsVpcMaps[dnsVpc.DnsZoneId] = []SVpc{}
 		}
-		records, ok := dnsRecordMaps[dnsZoneIds[i]]
-		if ok {
-			rows[i].DnsRecordsetCount = len(records)
+		if vpc, ok := vpcMaps[dnsVpc.VpcId]; ok {
+			dnsVpcMaps[dnsVpc.DnsZoneId] = append(dnsVpcMaps[dnsVpc.DnsZoneId], vpc)
 		}
 	}
-	return rows
+	providerIds := []string{}
+	for _, vpc := range vpcMaps {
+		if len(vpc.ManagerId) > 0 {
+			providerIds = append(providerIds, vpc.ManagerId)
+		}
+	}
+	providerMaps := map[string]SCloudprovider{}
+	err = db.FetchStandaloneObjectsByIds(CloudproviderManager, providerIds, &providerMaps)
+	if err != nil {
+		return nil, nil, nil, errors.Wrapf(err, "db.FetchStandaloneObjectsByIds.CloudproviderManager")
+	}
+	return dnsVpcMaps, dnsRecordMaps, providerMaps, nil
 }
 
 func (self *SDnsZone) RemoveVpc(ctx context.Context, vpcId string) error {

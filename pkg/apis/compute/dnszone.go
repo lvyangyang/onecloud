@@ -126,6 +126,12 @@ type DnsZoneDetails struct {
 	DnsRecordsetCount int `json:"dns_recordset_count"`
 	// 关联vpc数量
 	VpcCount int `json:"vpc_count"`
+
+	// 若不为空，则只能绑定此账号底下的vpc资源
+	CloudaccountId string `json:"cloudaccount_id"`
+
+	// 若值为OneCloud, 则只能绑定私有云vpc
+	Provider string `json:"provider"`
 }
 
 type DnsZoneListInput struct {
