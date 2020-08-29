@@ -245,9 +245,50 @@ func (manager *SDnsZoneManager) FetchCustomizeColumns(
 ) []api.DnsZoneDetails {
 	rows := make([]api.DnsZoneDetails, len(objs))
 	enRows := manager.SEnabledStatusInfrasResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields, isList)
+	dnsZoneIds := make([]string, len(objs))
 	for i := range rows {
 		rows[i] = api.DnsZoneDetails{
 			EnabledStatusInfrasResourceBaseDetails: enRows[i],
+		}
+		dnsZone := objs[i].(*SDnsZone)
+		dnsZoneIds[i] = dnsZone.Id
+	}
+	dnsVpcs := []SDnsZoneVpc{}
+	q := DnsZoneVpcManager.Query().In("dns_zone_id", dnsZoneIds)
+	err := db.FetchModelObjects(DnsZoneVpcManager, q, &dnsVpcs)
+	if err != nil {
+		return rows
+	}
+	dnsVpcMaps := map[string][]string{}
+	for _, dnsVpc := range dnsVpcs {
+		_, ok := dnsVpcMaps[dnsVpc.DnsZoneId]
+		if !ok {
+			dnsVpcMaps[dnsVpc.DnsZoneId] = []string{}
+		}
+		dnsVpcMaps[dnsVpc.DnsZoneId] = append(dnsVpcMaps[dnsVpc.DnsZoneId], dnsVpc.VpcId)
+	}
+	dnsRecords := []SDnsRecordSet{}
+	q = DnsRecordSetManager.Query().In("dns_zone_id", dnsZoneIds)
+	err = db.FetchModelObjects(DnsRecordSetManager, q, &dnsRecords)
+	if err != nil {
+		return rows
+	}
+	dnsRecordMaps := map[string][]string{}
+	for _, record := range dnsRecords {
+		_, ok := dnsRecordMaps[record.DnsZoneId]
+		if !ok {
+			dnsRecordMaps[record.DnsZoneId] = []string{}
+		}
+		dnsRecordMaps[record.DnsZoneId] = append(dnsRecordMaps[record.DnsZoneId], record.Id)
+	}
+	for i := range rows {
+		vpcs, ok := dnsVpcMaps[dnsZoneIds[i]]
+		if ok {
+			rows[i].VpcCount = len(vpcs)
+		}
+		records, ok := dnsRecordMaps[dnsZoneIds[i]]
+		if ok {
+			rows[i].DnsRecordsetCount = len(records)
 		}
 	}
 	return rows

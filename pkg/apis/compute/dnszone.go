@@ -69,6 +69,11 @@ type DnsZoneCreateInput struct {
 type DnsZoneDetails struct {
 	apis.EnabledStatusInfrasResourceBaseDetails
 	SDnsZone
+
+	// Dns记录数量
+	DnsRecordsetCount int `json:"dns_recordset_count"`
+	// 关联vpc数量
+	VpcCount int `json:"vpc_count"`
 }
 
 type DnsZoneListInput struct {
