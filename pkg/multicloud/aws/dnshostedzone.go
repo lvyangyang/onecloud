@@ -17,6 +17,7 @@ package aws
 import (
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/route53"
 
 	"yunion.io/x/jsonutils"
@@ -225,6 +226,11 @@ func (client *SAwsClient) GetHostedZoneById(ID string) (*SHostedZone, error) {
 	params.Id = &ID
 	ret, err := route53Client.GetHostedZone(&params)
 	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == route53.ErrCodeNoSuchHostedZone {
+				return nil, errors.Wrap(cloudprovider.ErrNotFound, err.Error())
+			}
+		}
 		return nil, errors.Wrap(err, "route53Client.GetHostedZone()")
 	}
 

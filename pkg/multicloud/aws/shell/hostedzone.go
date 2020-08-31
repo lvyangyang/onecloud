@@ -54,7 +54,18 @@ func init() {
 		printObject(hostzones)
 		return nil
 	})
+	type HostedZoneGetOptions struct {
+		HOSTEDZONEID string
+	}
+	shellutils.R(&HostedZoneGetOptions{}, "hostedzone-show", "get hostedzone by id", func(cli *aws.SRegion, args *HostedZoneGetOptions) error {
 
+		hostedzone, err := cli.GetClient().GetHostedZoneById(args.HOSTEDZONEID)
+		if err != nil {
+			return err
+		}
+		printObject(hostedzone)
+		return nil
+	})
 	type HostedZoneAddVpcOptions struct {
 		HOSTEDZONEID string
 		VPC          string

@@ -25,6 +25,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
+type SRecordCreateRet struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Weight int    `json:"weight"`
+}
+
 type SRecordCountInfo struct {
 	RecordTotal string `json:"record_total"`
 	RecordsNum  string `json:"records_num"`
@@ -95,44 +102,69 @@ func (client *SQcloudClient) GetAllDnsRecords(sDomainName string) ([]SDnsRecord,
 	return result, nil
 }
 
-func GetRecordLineLineType(policyinfo cloudprovider.TDnsPolicyTypeValue) string {
-	switch policyinfo {
-	case cloudprovider.DnsPolicyTypeByGeoLocationMainland:
-		return "境内"
-	case cloudprovider.DnsPolicyTypeByGeoLocationOversea:
-		return "境外"
-	case cloudprovider.DnsPolicyTypeByCarrierTelecom:
-		return "电信"
-	case cloudprovider.DnsPolicyTypeByCarrierUnicom:
-		return "联通"
-	case cloudprovider.DnsPolicyTypeByCarrierChinaMobile:
-		return "移动"
-	case cloudprovider.DnsPolicyTypeByCarrierCernet:
-		return "教育网"
-
-	case cloudprovider.DnsPolicyTypeBySearchEngineBaidu:
-		return "百度"
-	case cloudprovider.DnsPolicyTypeBySearchEngineGoogle:
-		return "谷歌"
-	case cloudprovider.DnsPolicyTypeBySearchEngineYoudao:
-		return "有道"
-	case cloudprovider.DnsPolicyTypeBySearchEngineBing:
-		return "必应"
-	case cloudprovider.DnsPolicyTypeBySearchEngineSousou:
-		return "搜搜"
-	case cloudprovider.DnsPolicyTypeBySearchEngineSougou:
-		return "搜狗"
-	case cloudprovider.DnsPolicyTypeBySearchEngineQihu360:
-		return "奇虎"
+func GetRecordLineLineType(policyinfo cloudprovider.TDnsPolicyTypeValue, policytype cloudprovider.TDnsPolicyType) string {
+	line := ""
+	switch policytype {
+	case cloudprovider.DnsPolicyTypeByGeoLocation:
+		err := policyinfo.Unmarshal(&line, "location")
+		if err != nil {
+			return "默认"
+		}
+		// "境内", "境外":
+		switch line {
+		case "oversea":
+			return "境外"
+		case "mainland":
+			return "境内"
+		}
+	case cloudprovider.DnsPolicyTypeByCarrier:
+		err := policyinfo.Unmarshal(&line, "carrier")
+		if err != nil {
+			return "默认"
+		}
+		//  "电信", "联通", "移动", "教育网":
+		switch line {
+		case "unicom":
+			return "联通"
+		case "telecom":
+			return "电信"
+		case "chinamobile":
+			return "移动"
+		case "cernet":
+			return "教育网"
+		}
+	case cloudprovider.DnsPolicyTypeBySearchEngine:
+		err := policyinfo.Unmarshal(&line, "searchengine")
+		if err != nil {
+			return "默认"
+		}
+		// "百度", "谷歌", "有道", "必应", "搜搜", "搜狗", "奇虎":
+		switch line {
+		case "baidu":
+			return "百度"
+		case "google":
+			return "谷歌"
+		case "bing":
+			return "必应"
+		case "youdao":
+			return "有道"
+		case "sousou":
+			return "搜搜"
+		case "sougou":
+			return "搜狗"
+		case "qihu360":
+			return "奇虎"
+		}
 	default:
 		return "默认"
 	}
+	return "默认"
 }
 
 // https://cloud.tencent.com/document/api/302/8516
-func (client *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) error {
+func (client *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) (string, error) {
 	params := map[string]string{}
-	recordline := GetRecordLineLineType(opts.PolicyParams)
+	recordline := GetRecordLineLineType(opts.PolicyParams, opts.PolicyType)
 	if opts.Ttl < 600 {
 		opts.Ttl = 600
 	}
@@ -148,17 +180,22 @@ func (client *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, d
 	params["ttl"] = strconv.FormatInt(opts.Ttl, 10)
 	params["value"] = opts.DnsValue
 	params["recordLine"] = recordline
-	_, err := client.cnsRequest("RecordCreate", params)
+	resp, err := client.cnsRequest("RecordCreate", params)
 	if err != nil {
-		return errors.Wrapf(err, "client.cnsRequest(RecordCreate, %s)", fmt.Sprintln(params))
+		return "", errors.Wrapf(err, "client.cnsRequest(RecordCreate, %s)", fmt.Sprintln(params))
 	}
-	return nil
+	SRecordCreateRet := SRecordCreateRet{}
+	err = resp.Unmarshal(&SRecordCreateRet, "record")
+	if err != nil {
+		return "", errors.Wrapf(err, "%s.Unmarshal(records)", fmt.Sprintln(resp))
+	}
+	return SRecordCreateRet.ID, nil
 }
 
 // https://cloud.tencent.com/document/product/302/8511
 func (client *SQcloudClient) ModifyDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) error {
 	params := map[string]string{}
-	recordline := GetRecordLineLineType(opts.PolicyParams)
+	recordline := GetRecordLineLineType(opts.PolicyParams, opts.PolicyType)
 	if opts.Ttl < 600 {
 		opts.Ttl = 600
 	}
@@ -177,6 +214,19 @@ func (client *SQcloudClient) ModifyDnsRecord(opts *cloudprovider.DnsRecordSet, d
 	params["value"] = opts.DnsValue
 	params["recordLine"] = recordline
 	_, err := client.cnsRequest("RecordModify", params)
+	if err != nil {
+		return errors.Wrapf(err, "client.cnsRequest(RecordModify, %s)", fmt.Sprintln(params))
+	}
+	return nil
+}
+
+// https://cloud.tencent.com/document/product/302/8519
+func (client *SQcloudClient) ModifyRecordStatus(status, recordId, domain string) error {
+	params := map[string]string{}
+	params["domain"] = domain
+	params["recordId"] = recordId
+	params["status"] = status // “disable” 和 “enable”
+	_, err := client.cnsRequest("RecordStatus", params)
 	if err != nil {
 		return errors.Wrapf(err, "client.cnsRequest(RecordModify, %s)", fmt.Sprintln(params))
 	}
