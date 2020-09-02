@@ -18,7 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/pkg/utils"
 )
 
 type TDnsZoneType string
@@ -26,7 +26,7 @@ type TDnsPolicyType string
 
 type TDnsType string
 
-type TDnsPolicyTypeValue jsonutils.JSONObject
+type TDnsPolicyValue string
 
 const (
 	PublicZone  = TDnsZoneType("PublicZone")
@@ -92,23 +92,23 @@ var (
 )
 
 var (
-	DnsPolicyValueNil TDnsPolicyTypeValue = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{}))
+	DnsPolicyValueEmpty = TDnsPolicyValue("")
 
-	DnsPolicyTypeByCarrierUnicom      = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"carrier": "unicom"}))
-	DnsPolicyTypeByCarrierTelecom     = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"carrier": "telecom"}))
-	DnsPolicyTypeByCarrierChinaMobile = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"carrier": "chinamobile"}))
-	DnsPolicyTypeByCarrierCernet      = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"carrier": "cernet"}))
+	DnsPolicyValueUnicom      = TDnsPolicyValue("unicom")
+	DnsPolicyValueTelecom     = TDnsPolicyValue("telecom")
+	DnsPolicyValueChinaMobile = TDnsPolicyValue("chinamobile")
+	DnsPolicyValueCernet      = TDnsPolicyValue("cernet")
 
-	DnsPolicyTypeByGeoLocationOversea  = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"location": "oversea"}))
-	DnsPolicyTypeByGeoLocationMainland = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"location": "mainland"}))
+	DnsPolicyValueOversea  = TDnsPolicyValue("oversea")
+	DnsPolicyValueMainland = TDnsPolicyValue("mainland")
 
-	DnsPolicyTypeBySearchEngineBaidu   = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"searchengine": "baidu"}))
-	DnsPolicyTypeBySearchEngineGoogle  = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"searchengine": "google"}))
-	DnsPolicyTypeBySearchEngineBing    = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"searchengine": "bing"}))
-	DnsPolicyTypeBySearchEngineYoudao  = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"searchengine": "youdao"}))
-	DnsPolicyTypeBySearchEngineSousou  = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"searchengine": "sousou"}))
-	DnsPolicyTypeBySearchEngineSougou  = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"searchengine": "sougou"}))
-	DnsPolicyTypeBySearchEngineQihu360 = TDnsPolicyTypeValue(jsonutils.Marshal(map[string]string{"searchengine": "qihu360"}))
+	DnsPolicyValueBaidu   = TDnsPolicyValue("baidu")
+	DnsPolicyValueGoogle  = TDnsPolicyValue("google")
+	DnsPolicyValueBing    = TDnsPolicyValue("bing")
+	DnsPolicyValueYoudao  = TDnsPolicyValue("youdao")
+	DnsPolicyValueSousou  = TDnsPolicyValue("sousou")
+	DnsPolicyValueSougou  = TDnsPolicyValue("sougou")
+	DnsPolicyValueQihu360 = TDnsPolicyValue("qihu360")
 )
 
 type SPrivateZoneVpc struct {
@@ -124,37 +124,24 @@ type SDnsZoneCreateOptions struct {
 	Options  *jsonutils.JSONDict
 }
 
-func IsSupportPolicyValue(v1 TDnsPolicyTypeValue, arr []TDnsPolicyTypeValue) bool {
-	for i := range arr {
-		if IsPolicyValueEqual(v1, arr[i]) {
-			return true
-		}
-	}
-	return false
-}
-
-func IsPolicyValueEqual(v1, v2 TDnsPolicyTypeValue) bool {
-	if gotypes.IsNil(v1) {
-		v1 = DnsPolicyValueNil
-	}
-	if gotypes.IsNil(v2) {
-		v2 = DnsPolicyValueNil
-	}
-	return jsonutils.Marshal(v1).Equals(jsonutils.Marshal(v2))
+func IsSupportPolicyValue(v1 TDnsPolicyValue, arr []TDnsPolicyValue) bool {
+	isIn, _ := utils.InArray(v1, arr)
+	return isIn
 }
 
 type DnsRecordSet struct {
 	Id         string
 	ExternalId string
 
-	Enabled      bool
-	DnsName      string
-	DnsType      TDnsType
-	DnsValue     string
-	Status       string
-	Ttl          int64
-	PolicyType   TDnsPolicyType
-	PolicyParams TDnsPolicyTypeValue
+	Enabled       bool
+	DnsName       string
+	DnsType       TDnsType
+	DnsValue      string
+	Status        string
+	Ttl           int64
+	PolicyType    TDnsPolicyType
+	PolicyValue   TDnsPolicyValue
+	PolicyOptions *jsonutils.JSONDict
 }
 
 func (r DnsRecordSet) GetGlobalId() string {
@@ -177,8 +164,12 @@ func (r DnsRecordSet) GetPolicyType() TDnsPolicyType {
 	return r.PolicyType
 }
 
-func (r DnsRecordSet) GetPolicyParams() TDnsPolicyTypeValue {
-	return r.PolicyParams
+func (r DnsRecordSet) GetPolicyOptions() *jsonutils.JSONDict {
+	return r.PolicyOptions
+}
+
+func (r DnsRecordSet) GetPolicyValue() TDnsPolicyValue {
+	return r.PolicyValue
 }
 
 func (r DnsRecordSet) GetStatus() string {
@@ -210,14 +201,24 @@ func (record DnsRecordSet) Equals(r DnsRecordSet) bool {
 	if record.PolicyType != r.PolicyType {
 		return false
 	}
-	if !IsPolicyValueEqual(record.PolicyParams, r.PolicyParams) {
+	if record.PolicyValue != r.PolicyValue {
 		return false
 	}
 	return true
 }
 
 func (record DnsRecordSet) String() string {
-	return fmt.Sprintf("%s-%s-%s-%s-%s", record.DnsType, record.DnsName, record.DnsValue, record.PolicyType, jsonutils.Marshal(record.PolicyParams).String())
+	return fmt.Sprintf("%s-%s-%s-%s-%s", record.DnsType, record.DnsName, record.DnsValue, record.PolicyType, record.PolicyValue)
+}
+
+func IsPolicyOptionEquals(o1, o2 *jsonutils.JSONDict) bool {
+	if o1 == nil {
+		o1 = jsonutils.NewDict()
+	}
+	if o2 == nil {
+		o2 = jsonutils.NewDict()
+	}
+	return o1.Equals(o2)
 }
 
 func CompareDnsRecordSet(iRecords []ICloudDnsRecordSet, local []DnsRecordSet, debug bool) ([]DnsRecordSet, []DnsRecordSet, []DnsRecordSet, []DnsRecordSet) {
@@ -229,14 +230,15 @@ func CompareDnsRecordSet(iRecords []ICloudDnsRecordSet, local []DnsRecordSet, de
 		record := DnsRecordSet{
 			ExternalId: iRecords[i].GetGlobalId(),
 
-			DnsName:      iRecords[i].GetDnsName(),
-			DnsType:      iRecords[i].GetDnsType(),
-			DnsValue:     iRecords[i].GetDnsValue(),
-			Status:       iRecords[i].GetStatus(),
-			Enabled:      iRecords[i].GetEnabled(),
-			Ttl:          iRecords[i].GetTTL(),
-			PolicyType:   iRecords[i].GetPolicyType(),
-			PolicyParams: iRecords[i].GetPolicyParams(),
+			DnsName:       iRecords[i].GetDnsName(),
+			DnsType:       iRecords[i].GetDnsType(),
+			DnsValue:      iRecords[i].GetDnsValue(),
+			Status:        iRecords[i].GetStatus(),
+			Enabled:       iRecords[i].GetEnabled(),
+			Ttl:           iRecords[i].GetTTL(),
+			PolicyType:    iRecords[i].GetPolicyType(),
+			PolicyValue:   iRecords[i].GetPolicyValue(),
+			PolicyOptions: iRecords[i].GetPolicyOptions(),
 		}
 		remoteMaps[record.String()] = record
 	}
@@ -248,7 +250,7 @@ func CompareDnsRecordSet(iRecords []ICloudDnsRecordSet, local []DnsRecordSet, de
 		remoteRecord, ok := remoteMaps[key]
 		if ok {
 			record.ExternalId = remoteRecord.ExternalId
-			if remoteRecord.Ttl != record.Ttl || remoteRecord.Enabled != record.Enabled {
+			if remoteRecord.Ttl != record.Ttl || remoteRecord.Enabled != record.Enabled || !IsPolicyOptionEquals(remoteRecord.PolicyOptions, record.PolicyOptions) {
 				updated = append(updated, record)
 			} else {
 				common = append(common, record)

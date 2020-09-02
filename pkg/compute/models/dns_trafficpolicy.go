@@ -53,9 +53,10 @@ func init() {
 type SDnsTrafficPolicy struct {
 	db.SEnabledStatusInfrasResourceBase
 
-	Provider   string              `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
-	PolicyType string              `width:"32" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
-	Params     *jsonutils.JSONDict `get:"domain" list:"domain" create:"domain_optional"`
+	Provider    string              `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
+	PolicyType  string              `width:"32" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"`
+	PolicyValue string              `width:"32" charset:"ascii" nullable:"false" list:"domain" create:"domain_optional"`
+	Options     *jsonutils.JSONDict `get:"domain" list:"domain" create:"domain_optional"`
 }
 
 // 创建
@@ -75,11 +76,11 @@ func (manager *SDnsTrafficPolicyManager) ValidateCreateData(ctx context.Context,
 	if isIn, _ := utils.InArray(cloudprovider.TDnsPolicyType(input.PolicyType), types); !isIn {
 		return input, httperrors.NewUnsupportOperationError("%s not support policy type %s", input.Provider, input.PolicyType)
 	}
-	policyValues := factory.GetSupportedDnsPolicyTypeValues()
+	policyValues := factory.GetSupportedDnsPolicyValues()
 	values, _ := policyValues[cloudprovider.TDnsPolicyType(input.PolicyType)]
 	if len(values) > 0 {
-		if !cloudprovider.IsSupportPolicyValue(cloudprovider.TDnsPolicyTypeValue(input.Params), values) {
-			return input, httperrors.NewUnsupportOperationError("%s %s not support policy params %s", input.Provider, input.PolicyType, input.Params)
+		if isIn, _ := utils.InArray(cloudprovider.TDnsPolicyValue(input.PolicyValue), values); !isIn {
+			return input, httperrors.NewUnsupportOperationError("%s %s not support policy value %s", input.Provider, input.PolicyType, input.PolicyValue)
 		}
 	}
 	return input, nil
@@ -142,10 +143,12 @@ func (manager *SDnsTrafficPolicyManager) FetchCustomizeColumns(
 	return rows
 }
 
-func (manager *SDnsTrafficPolicyManager) Register(ctx context.Context, userCred mcclient.TokenCredential, provider string, policyType cloudprovider.TDnsPolicyType, params cloudprovider.TDnsPolicyTypeValue) (*SDnsTrafficPolicy, error) {
-	q := manager.Query().Equals("provider", provider).Equals("policy_type", policyType)
-	if params != nil {
-		q = q.Equals("params", params.String())
+func (manager *SDnsTrafficPolicyManager) Register(ctx context.Context, userCred mcclient.TokenCredential, provider string, policyType cloudprovider.TDnsPolicyType, policyValue cloudprovider.TDnsPolicyValue, options *jsonutils.JSONDict) (*SDnsTrafficPolicy, error) {
+	q := manager.Query().Equals("provider", provider).Equals("policy_type", policyType).Equals("policy_value", policyValue)
+	if options != nil {
+		q = q.Equals("options", options.String())
+	} else {
+		q = q.IsNullOrEmpty("options")
 	}
 	policies := []SDnsTrafficPolicy{}
 	err := db.FetchModelObjects(manager, q, &policies)
@@ -163,8 +166,6 @@ func (manager *SDnsTrafficPolicyManager) Register(ctx context.Context, userCred 
 	}
 	policy.PolicyType = string(policyType)
 	policy.Provider = provider
-	if params != nil {
-		policy.Params, _ = params.(*jsonutils.JSONDict)
-	}
+	policy.Options = options
 	return policy, manager.TableSpec().Insert(ctx, policy)
 }

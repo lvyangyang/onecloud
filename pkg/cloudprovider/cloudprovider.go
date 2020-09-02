@@ -207,7 +207,7 @@ type ICloudProviderFactory interface {
 	GetSupportedDnsZoneTypes() []TDnsZoneType
 	GetSupportedDnsTypes() map[TDnsZoneType][]TDnsType
 	GetSupportedDnsPolicyTypes() map[TDnsZoneType][]TDnsPolicyType
-	GetSupportedDnsPolicyTypeValues() map[TDnsPolicyType][]TDnsPolicyTypeValue
+	GetSupportedDnsPolicyValues() map[TDnsPolicyType][]TDnsPolicyValue
 }
 
 type ICloudProvider interface {
@@ -609,25 +609,25 @@ func (factory *baseProviderFactory) GetSupportedDnsPolicyTypes() map[TDnsZoneTyp
 	return map[TDnsZoneType][]TDnsPolicyType{}
 }
 
-func (factory *baseProviderFactory) GetSupportedDnsPolicyTypeValues() map[TDnsPolicyType][]TDnsPolicyTypeValue {
-	return map[TDnsPolicyType][]TDnsPolicyTypeValue{}
+func (factory *baseProviderFactory) GetSupportedDnsPolicyValues() map[TDnsPolicyType][]TDnsPolicyValue {
+	return map[TDnsPolicyType][]TDnsPolicyValue{}
 }
 
 type SDnsCapability struct {
-	ZoneTypes        []TDnsZoneType
-	DnsTypes         map[TDnsZoneType][]TDnsType
-	PolicyTypes      map[TDnsZoneType][]TDnsPolicyType
-	PolicyTypeValues map[TDnsPolicyType][]TDnsPolicyTypeValue
+	ZoneTypes    []TDnsZoneType
+	DnsTypes     map[TDnsZoneType][]TDnsType
+	PolicyTypes  map[TDnsZoneType][]TDnsPolicyType
+	PolicyValues map[TDnsPolicyType][]TDnsPolicyValue
 }
 
 func GetDnsCapabilities() map[string]SDnsCapability {
 	capabilities := map[string]SDnsCapability{}
 	for provider, driver := range providerTable {
 		capabilities[provider] = SDnsCapability{
-			ZoneTypes:        driver.GetSupportedDnsZoneTypes(),
-			DnsTypes:         driver.GetSupportedDnsTypes(),
-			PolicyTypes:      driver.GetSupportedDnsPolicyTypes(),
-			PolicyTypeValues: driver.GetSupportedDnsPolicyTypeValues(),
+			ZoneTypes:    driver.GetSupportedDnsZoneTypes(),
+			DnsTypes:     driver.GetSupportedDnsTypes(),
+			PolicyTypes:  driver.GetSupportedDnsPolicyTypes(),
+			PolicyValues: driver.GetSupportedDnsPolicyValues(),
 		}
 	}
 	return capabilities

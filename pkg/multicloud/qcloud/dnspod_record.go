@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -95,34 +96,34 @@ func (client *SQcloudClient) GetAllDnsRecords(sDomainName string) ([]SDnsRecord,
 	return result, nil
 }
 
-func GetRecordLineLineType(policyinfo cloudprovider.TDnsPolicyTypeValue) string {
+func GetRecordLineLineType(policyinfo cloudprovider.TDnsPolicyValue) string {
 	switch policyinfo {
-	case cloudprovider.DnsPolicyTypeByGeoLocationMainland:
+	case cloudprovider.DnsPolicyValueMainland:
 		return "境内"
-	case cloudprovider.DnsPolicyTypeByGeoLocationOversea:
+	case cloudprovider.DnsPolicyValueOversea:
 		return "境外"
-	case cloudprovider.DnsPolicyTypeByCarrierTelecom:
+	case cloudprovider.DnsPolicyValueTelecom:
 		return "电信"
-	case cloudprovider.DnsPolicyTypeByCarrierUnicom:
+	case cloudprovider.DnsPolicyValueUnicom:
 		return "联通"
-	case cloudprovider.DnsPolicyTypeByCarrierChinaMobile:
+	case cloudprovider.DnsPolicyValueChinaMobile:
 		return "移动"
-	case cloudprovider.DnsPolicyTypeByCarrierCernet:
+	case cloudprovider.DnsPolicyValueCernet:
 		return "教育网"
 
-	case cloudprovider.DnsPolicyTypeBySearchEngineBaidu:
+	case cloudprovider.DnsPolicyValueBaidu:
 		return "百度"
-	case cloudprovider.DnsPolicyTypeBySearchEngineGoogle:
+	case cloudprovider.DnsPolicyValueGoogle:
 		return "谷歌"
-	case cloudprovider.DnsPolicyTypeBySearchEngineYoudao:
+	case cloudprovider.DnsPolicyValueYoudao:
 		return "有道"
-	case cloudprovider.DnsPolicyTypeBySearchEngineBing:
+	case cloudprovider.DnsPolicyValueBing:
 		return "必应"
-	case cloudprovider.DnsPolicyTypeBySearchEngineSousou:
+	case cloudprovider.DnsPolicyValueSousou:
 		return "搜搜"
-	case cloudprovider.DnsPolicyTypeBySearchEngineSougou:
+	case cloudprovider.DnsPolicyValueSougou:
 		return "搜狗"
-	case cloudprovider.DnsPolicyTypeBySearchEngineQihu360:
+	case cloudprovider.DnsPolicyValueQihu360:
 		return "奇虎"
 	default:
 		return "默认"
@@ -132,7 +133,7 @@ func GetRecordLineLineType(policyinfo cloudprovider.TDnsPolicyTypeValue) string 
 // https://cloud.tencent.com/document/api/302/8516
 func (client *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) error {
 	params := map[string]string{}
-	recordline := GetRecordLineLineType(opts.PolicyParams)
+	recordline := GetRecordLineLineType(opts.PolicyValue)
 	if opts.Ttl < 600 {
 		opts.Ttl = 600
 	}
@@ -158,7 +159,7 @@ func (client *SQcloudClient) CreateDnsRecord(opts *cloudprovider.DnsRecordSet, d
 // https://cloud.tencent.com/document/product/302/8511
 func (client *SQcloudClient) ModifyDnsRecord(opts *cloudprovider.DnsRecordSet, domainName string) error {
 	params := map[string]string{}
-	recordline := GetRecordLineLineType(opts.PolicyParams)
+	recordline := GetRecordLineLineType(opts.PolicyValue)
 	if opts.Ttl < 600 {
 		opts.Ttl = 600
 	}
@@ -239,37 +240,41 @@ func (self *SDnsRecord) GetPolicyType() cloudprovider.TDnsPolicyType {
 	}
 }
 
-func (self *SDnsRecord) GetPolicyParams() cloudprovider.TDnsPolicyTypeValue {
+func (self *SDnsRecord) GetPolicyOptions() *jsonutils.JSONDict {
+	return nil
+}
+
+func (self *SDnsRecord) GetPolicyValue() cloudprovider.TDnsPolicyValue {
 	switch self.Line {
 	case "境内":
-		return cloudprovider.DnsPolicyTypeByGeoLocationMainland
+		return cloudprovider.DnsPolicyValueMainland
 	case "境外":
-		return cloudprovider.DnsPolicyTypeByGeoLocationOversea
+		return cloudprovider.DnsPolicyValueOversea
 
 	case "电信":
-		return cloudprovider.DnsPolicyTypeByCarrierTelecom
+		return cloudprovider.DnsPolicyValueTelecom
 	case "联通":
-		return cloudprovider.DnsPolicyTypeByCarrierUnicom
+		return cloudprovider.DnsPolicyValueUnicom
 	case "移动":
-		return cloudprovider.DnsPolicyTypeByCarrierChinaMobile
+		return cloudprovider.DnsPolicyValueChinaMobile
 	case "教育网":
-		return cloudprovider.DnsPolicyTypeByCarrierCernet
+		return cloudprovider.DnsPolicyValueCernet
 
 	case "百度":
-		return cloudprovider.DnsPolicyTypeBySearchEngineBaidu
+		return cloudprovider.DnsPolicyValueBaidu
 	case "谷歌":
-		return cloudprovider.DnsPolicyTypeBySearchEngineGoogle
+		return cloudprovider.DnsPolicyValueGoogle
 	case "有道":
-		return cloudprovider.DnsPolicyTypeBySearchEngineYoudao
+		return cloudprovider.DnsPolicyValueYoudao
 	case "必应":
-		return cloudprovider.DnsPolicyTypeBySearchEngineBing
+		return cloudprovider.DnsPolicyValueBing
 	case "搜搜":
-		return cloudprovider.DnsPolicyTypeBySearchEngineSousou
+		return cloudprovider.DnsPolicyValueSousou
 	case "搜狗":
-		return cloudprovider.DnsPolicyTypeBySearchEngineSougou
+		return cloudprovider.DnsPolicyValueSougou
 	case "奇虎":
-		return cloudprovider.DnsPolicyTypeBySearchEngineQihu360
+		return cloudprovider.DnsPolicyValueQihu360
 	default:
-		return nil
+		return cloudprovider.DnsPolicyValueEmpty
 	}
 }

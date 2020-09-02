@@ -107,14 +107,14 @@ func (manager *SDnsRecordSetManager) ValidateCreateData(ctx context.Context, use
 		if ok, _ := utils.InArray(cloudprovider.TDnsPolicyType(policy.PolicyType), policyTypes); !ok {
 			return input, httperrors.NewNotSupportedError("%s %s not supported policy type %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType)
 		}
-		_policyValues := factory.GetSupportedDnsPolicyTypeValues()
+		_policyValues := factory.GetSupportedDnsPolicyValues()
 		policyValues, _ := _policyValues[cloudprovider.TDnsPolicyType(policy.PolicyType)]
 		if len(policyValues) > 0 {
-			if policy.PolicyParams == nil {
-				return input, httperrors.NewMissingParameterError(fmt.Sprintf("missing %s policy params", policy.Provider))
+			if len(policy.PolicyValue) == 0 {
+				return input, httperrors.NewMissingParameterError(fmt.Sprintf("missing %s policy value", policy.Provider))
 			}
-			if !cloudprovider.IsSupportPolicyValue(cloudprovider.TDnsPolicyTypeValue(policy.PolicyParams), policyValues) {
-				return input, httperrors.NewNotSupportedError("%s %s %s not support %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType, policy.PolicyParams)
+			if isIn, _ := utils.InArray(cloudprovider.TDnsPolicyValue(policy.PolicyValue), policyValues); !isIn {
+				return input, httperrors.NewNotSupportedError("%s %s %s not support %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType, policy.PolicyValue)
 			}
 		}
 	}
@@ -128,7 +128,7 @@ func (self *SDnsRecordSet) PostCreate(ctx context.Context, userCred mcclient.Tok
 	input := api.DnsRecordSetCreateInput{}
 	data.Unmarshal(&input)
 	for _, policy := range input.TrafficPolicies {
-		self.setTrafficPolicy(ctx, userCred, policy.Provider, cloudprovider.TDnsPolicyType(policy.PolicyType), cloudprovider.TDnsPolicyTypeValue(policy.PolicyParams))
+		self.setTrafficPolicy(ctx, userCred, policy.Provider, cloudprovider.TDnsPolicyType(policy.PolicyType), cloudprovider.TDnsPolicyValue(policy.PolicyValue), policy.PolicyOptions)
 	}
 
 	dnsZone, err := self.GetDnsZone()
@@ -214,9 +214,10 @@ func (manager *SDnsRecordSetManager) FetchCustomizeColumns(
 	policyMaps := map[string]api.DnsRecordPolicy{}
 	for i := range policies {
 		policyMaps[policies[i].Id] = api.DnsRecordPolicy{
-			Provider:     policies[i].Provider,
-			PolicyType:   policies[i].PolicyType,
-			PolicyParams: policies[i].Params,
+			Provider:      policies[i].Provider,
+			PolicyType:    policies[i].PolicyType,
+			PolicyValue:   policies[i].PolicyValue,
+			PolicyOptions: policies[i].Options,
 		}
 	}
 	for i := range rows {
@@ -373,18 +374,15 @@ func (self *SDnsRecordSet) GetDnsTrafficPolicy(provider string) (*SDnsTrafficPol
 	return &policies[0], nil
 }
 
-func (self *SDnsRecordSet) GetDefaultDnsTrafficPolicy(provider string) (cloudprovider.TDnsPolicyType, cloudprovider.TDnsPolicyTypeValue, error) {
+func (self *SDnsRecordSet) GetDefaultDnsTrafficPolicy(provider string) (cloudprovider.TDnsPolicyType, cloudprovider.TDnsPolicyValue, *jsonutils.JSONDict, error) {
 	policy, err := self.GetDnsTrafficPolicy(provider)
 	if err != nil && errors.Cause(err) != sql.ErrNoRows {
-		return cloudprovider.DnsPolicyTypeSimple, nil, errors.Wrapf(err, "GetDnsTrafficPolicy(%s)", provider)
+		return cloudprovider.DnsPolicyTypeSimple, cloudprovider.DnsPolicyValueEmpty, nil, errors.Wrapf(err, "GetDnsTrafficPolicy(%s)", provider)
 	}
 	if policy != nil {
-		if policy.Params != nil {
-			return cloudprovider.TDnsPolicyType(policy.PolicyType), cloudprovider.TDnsPolicyTypeValue(policy.Params), nil
-		}
-		return cloudprovider.TDnsPolicyType(policy.PolicyType), nil, nil
+		return cloudprovider.TDnsPolicyType(policy.PolicyType), cloudprovider.TDnsPolicyValue(policy.PolicyValue), policy.Options, nil
 	}
-	return cloudprovider.DnsPolicyTypeSimple, nil, nil
+	return cloudprovider.DnsPolicyTypeSimple, cloudprovider.DnsPolicyValueEmpty, policy.Options, nil
 }
 
 func (self *SDnsRecordSet) GetDnsZone() (*SDnsZone, error) {
@@ -408,7 +406,7 @@ func (self *SDnsRecordSet) syncWithCloudDnsRecord(ctx context.Context, userCred 
 	if err != nil {
 		return errors.Wrapf(err, "update")
 	}
-	return self.setTrafficPolicy(ctx, userCred, provider, ext.PolicyType, ext.PolicyParams)
+	return self.setTrafficPolicy(ctx, userCred, provider, ext.PolicyType, ext.PolicyValue, ext.PolicyOptions)
 }
 
 func (self *SDnsRecordSet) RemovePolicy(ctx context.Context, userCred mcclient.TokenCredential, policyId string) error {
@@ -427,7 +425,7 @@ func (self *SDnsRecordSet) RemovePolicy(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (self *SDnsRecordSet) setTrafficPolicy(ctx context.Context, userCred mcclient.TokenCredential, provider string, policyType cloudprovider.TDnsPolicyType, policyValue cloudprovider.TDnsPolicyTypeValue) error {
+func (self *SDnsRecordSet) setTrafficPolicy(ctx context.Context, userCred mcclient.TokenCredential, provider string, policyType cloudprovider.TDnsPolicyType, policyValue cloudprovider.TDnsPolicyValue, policyOptions *jsonutils.JSONDict) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
@@ -436,16 +434,13 @@ func (self *SDnsRecordSet) setTrafficPolicy(ctx context.Context, userCred mcclie
 		return errors.Wrapf(err, "GetDnsTrafficPolicy(%s)", provider)
 	}
 	if policy != nil {
-		if cloudprovider.TDnsPolicyType(policy.PolicyType) == policyType && cloudprovider.IsPolicyValueEqual(
-			cloudprovider.TDnsPolicyTypeValue(policy.Params),
-			policyValue,
-		) {
+		if cloudprovider.TDnsPolicyType(policy.PolicyType) == policyType && cloudprovider.TDnsPolicyValue(policy.PolicyValue) == policyValue && cloudprovider.IsPolicyOptionEquals(policy.Options, policyOptions) {
 			return nil
 		}
 		self.RemovePolicy(ctx, userCred, policy.Id)
 	}
 
-	policy, err = DnsTrafficPolicyManager.Register(ctx, userCred, provider, policyType, policyValue)
+	policy, err = DnsTrafficPolicyManager.Register(ctx, userCred, provider, policyType, policyValue, policyOptions)
 	if err != nil {
 		return errors.Wrapf(err, "DnsTrafficPolicyManager.Register")
 	}
@@ -525,17 +520,17 @@ func (self *SDnsRecordSet) PerformSetTrafficPolicies(ctx context.Context, userCr
 		if ok, _ := utils.InArray(cloudprovider.TDnsPolicyType(policy.PolicyType), policyTypes); !ok {
 			return nil, httperrors.NewNotSupportedError("%s %s not supported policy type %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType)
 		}
-		_policyValues := factory.GetSupportedDnsPolicyTypeValues()
+		_policyValues := factory.GetSupportedDnsPolicyValues()
 		policyValues, _ := _policyValues[cloudprovider.TDnsPolicyType(policy.PolicyType)]
 		if len(policyValues) > 0 {
-			if policy.PolicyParams == nil {
-				return nil, httperrors.NewMissingParameterError(fmt.Sprintf("missing %s policy params", policy.Provider))
+			if len(policy.PolicyValue) == 0 {
+				return nil, httperrors.NewMissingParameterError(fmt.Sprintf("missing %s policy value", policy.Provider))
 			}
-			if !cloudprovider.IsSupportPolicyValue(cloudprovider.TDnsPolicyTypeValue(policy.PolicyParams), policyValues) {
-				return nil, httperrors.NewNotSupportedError("%s %s %s not support %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType, policy.PolicyParams)
+			if isIn, _ := utils.InArray(cloudprovider.TDnsPolicyValue(policy.PolicyValue), policyValues); !isIn {
+				return nil, httperrors.NewNotSupportedError("%s %s %s not support %s", policy.Provider, dnsZone.ZoneType, policy.PolicyType, policy.PolicyValue)
 			}
 		}
-		err = self.setTrafficPolicy(ctx, userCred, policy.Provider, cloudprovider.TDnsPolicyType(policy.PolicyType), cloudprovider.TDnsPolicyTypeValue(policy.PolicyParams))
+		err = self.setTrafficPolicy(ctx, userCred, policy.Provider, cloudprovider.TDnsPolicyType(policy.PolicyType), cloudprovider.TDnsPolicyValue(policy.PolicyValue), policy.PolicyOptions)
 		if err != nil {
 			return nil, httperrors.NewGeneralError(errors.Wrapf(err, "setTrafficPolicy"))
 		}

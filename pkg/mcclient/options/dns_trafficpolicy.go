@@ -30,20 +30,21 @@ func (opts *DnsTrafficPolicyListOptions) Params() (jsonutils.JSONObject, error) 
 
 type DnsTrafficPolicyCreateOptions struct {
 	BaseCreateOptions
-	PROVIDER     string `choices:"Aws|Qcloud"`
-	POLICY_TYPE  string `choices:"Simple|ByCarrier|ByGeoLocation|BySearchEngine|IpRange|Weighted|Failover|MultiValueAnswer|Latency"`
-	PolicyParams string
+	PROVIDER      string `choices:"Aws|Qcloud"`
+	POLICY_TYPE   string `choices:"Simple|ByCarrier|ByGeoLocation|BySearchEngine|IpRange|Weighted|Failover|MultiValueAnswer|Latency"`
+	PolicyValue   string
+	PolicyOptions string
 }
 
 func (opts *DnsTrafficPolicyCreateOptions) Params() (jsonutils.JSONObject, error) {
 	params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
-	params.Remove("policy_params")
-	if len(opts.PolicyParams) > 0 {
-		policyParams, err := jsonutils.Parse([]byte(opts.PolicyParams))
+	params.Remove("policy_options")
+	if len(opts.PolicyOptions) > 0 {
+		policyParams, err := jsonutils.Parse([]byte(opts.PolicyOptions))
 		if err != nil {
-			return nil, errors.Wrapf(err, "jsonutils.Parse(%s)", opts.PolicyParams)
+			return nil, errors.Wrapf(err, "jsonutils.Parse(%s)", opts.PolicyOptions)
 		}
-		params.Add(policyParams, "params")
+		params.Add(policyParams, "options")
 	}
 	return params, nil
 }

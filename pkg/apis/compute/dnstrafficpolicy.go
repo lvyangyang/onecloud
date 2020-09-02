@@ -23,10 +23,11 @@ import (
 type DnsTrafficPolicyCreateInput struct {
 	apis.EnabledStatusInfrasResourceBaseCreateInput
 
-	Provider   string `json:"provider"`
-	PolicyType string `json:"policy_type"`
+	Provider    string `json:"provider"`
+	PolicyType  string `json:"policy_type"`
+	PolicyValue string `json:"policy_value"`
 	// 额外参数
-	Params *jsonutils.JSONDict `json:"params"`
+	Options *jsonutils.JSONDict `json:"options"`
 }
 
 type DnsTrafficPolicyDetails struct {

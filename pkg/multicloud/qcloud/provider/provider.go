@@ -96,26 +96,26 @@ func (self *SQcloudProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovid
 	}
 }
 
-func (self *SQcloudProviderFactory) GetSupportedDnsPolicyTypeValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyTypeValue {
-	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyTypeValue{
-		cloudprovider.DnsPolicyTypeByCarrier: []cloudprovider.TDnsPolicyTypeValue{
-			cloudprovider.DnsPolicyTypeByCarrierUnicom,
-			cloudprovider.DnsPolicyTypeByCarrierTelecom,
-			cloudprovider.DnsPolicyTypeByCarrierChinaMobile,
-			cloudprovider.DnsPolicyTypeByCarrierCernet,
+func (self *SQcloudProviderFactory) GetSupportedDnsPolicyValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue {
+	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue{
+		cloudprovider.DnsPolicyTypeByCarrier: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueUnicom,
+			cloudprovider.DnsPolicyValueTelecom,
+			cloudprovider.DnsPolicyValueChinaMobile,
+			cloudprovider.DnsPolicyValueCernet,
 		},
-		cloudprovider.DnsPolicyTypeByGeoLocation: []cloudprovider.TDnsPolicyTypeValue{
-			cloudprovider.DnsPolicyTypeByGeoLocationOversea,
-			cloudprovider.DnsPolicyTypeByGeoLocationMainland,
+		cloudprovider.DnsPolicyTypeByGeoLocation: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueOversea,
+			cloudprovider.DnsPolicyValueMainland,
 		},
-		cloudprovider.DnsPolicyTypeBySearchEngine: []cloudprovider.TDnsPolicyTypeValue{
-			cloudprovider.DnsPolicyTypeBySearchEngineBaidu,
-			cloudprovider.DnsPolicyTypeBySearchEngineBing,
-			cloudprovider.DnsPolicyTypeBySearchEngineGoogle,
-			cloudprovider.DnsPolicyTypeBySearchEngineYoudao,
-			cloudprovider.DnsPolicyTypeBySearchEngineSousou,
-			cloudprovider.DnsPolicyTypeBySearchEngineSougou,
-			cloudprovider.DnsPolicyTypeBySearchEngineQihu360,
+		cloudprovider.DnsPolicyTypeBySearchEngine: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueBaidu,
+			cloudprovider.DnsPolicyValueBing,
+			cloudprovider.DnsPolicyValueGoogle,
+			cloudprovider.DnsPolicyValueYoudao,
+			cloudprovider.DnsPolicyValueSousou,
+			cloudprovider.DnsPolicyValueSougou,
+			cloudprovider.DnsPolicyValueQihu360,
 		},
 	}
 }

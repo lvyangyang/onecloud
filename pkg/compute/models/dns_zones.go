@@ -521,7 +521,7 @@ func (self *SDnsZone) SyncDnsRecordSets(ctx context.Context, userCred mcclient.T
 			DnsValue: dbRecords[i].DnsValue,
 			Ttl:      dbRecords[i].TTL,
 		}
-		record.PolicyType, record.PolicyParams, err = dbRecords[i].GetDefaultDnsTrafficPolicy(provider)
+		record.PolicyType, record.PolicyValue, record.PolicyOptions, err = dbRecords[i].GetDefaultDnsTrafficPolicy(provider)
 		if err != nil {
 			result.Error(errors.Wrapf(err, "GetDefaultDnsTrafficPolicy(%s)", provider))
 			return result
@@ -590,7 +590,7 @@ func (self *SDnsZone) newFromCloudDnsRecordSet(ctx context.Context, userCred mcc
 		return nil, errors.Wrapf(err, "Insert")
 	}
 
-	record.setTrafficPolicy(ctx, userCred, provider, ext.PolicyType, ext.PolicyParams)
+	record.setTrafficPolicy(ctx, userCred, provider, ext.PolicyType, ext.PolicyValue, ext.PolicyOptions)
 	return record, nil
 }
 

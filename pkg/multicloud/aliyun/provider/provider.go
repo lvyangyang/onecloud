@@ -103,21 +103,21 @@ func (self *SAliyunProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovid
 	}
 }
 
-func (self *SAliyunProviderFactory) GetSupportedDnsPolicyTypeValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyTypeValue {
-	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyTypeValue{
-		cloudprovider.DnsPolicyTypeByCarrier: []cloudprovider.TDnsPolicyTypeValue{
-			cloudprovider.DnsPolicyTypeByCarrierUnicom,
-			cloudprovider.DnsPolicyTypeByCarrierTelecom,
-			cloudprovider.DnsPolicyTypeByCarrierChinaMobile,
-			cloudprovider.DnsPolicyTypeByCarrierCernet,
+func (self *SAliyunProviderFactory) GetSupportedDnsValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue {
+	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue{
+		cloudprovider.DnsPolicyTypeByCarrier: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueUnicom,
+			cloudprovider.DnsPolicyValueTelecom,
+			cloudprovider.DnsPolicyValueChinaMobile,
+			cloudprovider.DnsPolicyValueCernet,
 		},
-		cloudprovider.DnsPolicyTypeByGeoLocation: []cloudprovider.TDnsPolicyTypeValue{
-			cloudprovider.DnsPolicyTypeByGeoLocationOversea,
+		cloudprovider.DnsPolicyTypeByGeoLocation: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueOversea,
 		},
-		cloudprovider.DnsPolicyTypeBySearchEngine: []cloudprovider.TDnsPolicyTypeValue{
-			cloudprovider.DnsPolicyTypeBySearchEngineBaidu,
-			cloudprovider.DnsPolicyTypeBySearchEngineGoogle,
-			cloudprovider.DnsPolicyTypeBySearchEngineBing,
+		cloudprovider.DnsPolicyTypeBySearchEngine: []cloudprovider.TDnsPolicyValue{
+			cloudprovider.DnsPolicyValueBaidu,
+			cloudprovider.DnsPolicyValueGoogle,
+			cloudprovider.DnsPolicyValueBing,
 		},
 	}
 }

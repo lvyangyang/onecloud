@@ -115,8 +115,8 @@ func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovider.
 	}
 }
 
-func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypeValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyTypeValue {
-	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyTypeValue{}
+func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypeValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue {
+	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyValue{}
 }
 
 func (self *SAwsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {

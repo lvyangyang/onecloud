@@ -25,9 +25,10 @@ const (
 )
 
 type DnsRecordPolicy struct {
-	Provider     string              `json:"provider"`
-	PolicyType   string              `json:"policy_type"`
-	PolicyParams *jsonutils.JSONDict `json:"policy_params"`
+	Provider      string              `json:"provider"`
+	PolicyType    string              `json:"policy_type"`
+	PolicyValue   string              `json:"policy_value"`
+	PolicyOptions *jsonutils.JSONDict `json:"policy_options"`
 }
 
 type DnsRecordSetCreateInput struct {

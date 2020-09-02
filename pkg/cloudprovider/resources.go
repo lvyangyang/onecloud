@@ -1042,5 +1042,6 @@ type ICloudDnsRecordSet interface {
 	GetTTL() int64
 
 	GetPolicyType() TDnsPolicyType
-	GetPolicyParams() TDnsPolicyTypeValue
+	GetPolicyValue() TDnsPolicyValue
+	GetPolicyOptions() *jsonutils.JSONDict
 }

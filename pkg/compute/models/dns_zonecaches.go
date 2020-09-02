@@ -441,7 +441,7 @@ func (self *SDnsZoneCache) GetRecordSets() ([]cloudprovider.DnsRecordSet, error)
 			Ttl:      records[i].TTL,
 		}
 
-		record.PolicyType, record.PolicyParams, err = records[i].GetDefaultDnsTrafficPolicy(account.Provider)
+		record.PolicyType, record.PolicyValue, record.PolicyOptions, err = records[i].GetDefaultDnsTrafficPolicy(account.Provider)
 		if err != nil {
 			return nil, errors.Wrapf(err, "GetDefaultDnsTrafficPolicy(%s)", account.Provider)
 		}
