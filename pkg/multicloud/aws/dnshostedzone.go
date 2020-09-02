@@ -73,6 +73,33 @@ func (self *SHostedZone) Refresh() error {
 	return jsonutils.Update(self, hostedZone)
 }
 
+func (client *SAwsClient) ListGeoLocations() ([]*route53.GeoLocationDetails, error) {
+	s, err := client.getAwsRoute53Session()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.getAwsRoute53Session()")
+	}
+	route53Client := route53.New(s)
+	locations := []*route53.GeoLocationDetails{}
+	params := route53.ListGeoLocationsInput{}
+	max := "20"
+	for {
+		params.MaxItems = &max
+		ret, err := route53Client.ListGeoLocations(&params)
+		if err != nil {
+			return nil, errors.Wrapf(err, "route53Client.ListGeoLocations(%s)", jsonutils.Marshal(params).String())
+		}
+		locations = append(locations, ret.GeoLocationDetailsList...)
+		if ret.IsTruncated != nil && !*ret.IsTruncated {
+			break
+		}
+
+		params.StartContinentCode = ret.NextContinentCode
+		params.StartCountryCode = ret.NextCountryCode
+		params.StartSubdivisionCode = ret.NextSubdivisionCode
+	}
+	return locations, nil
+}
+
 func (client *SAwsClient) CreateHostedZone(opts *cloudprovider.SDnsZoneCreateOptions) (*SHostedZone, error) {
 	s, err := client.getAwsRoute53Session()
 	if err != nil {

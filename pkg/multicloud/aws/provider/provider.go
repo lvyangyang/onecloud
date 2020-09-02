@@ -116,7 +116,10 @@ func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypes() map[cloudprovider.
 }
 
 func (self *SAwsProviderFactory) GetSupportedDnsPolicyTypeValues() map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyTypeValue {
-	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyTypeValue{}
+	return map[cloudprovider.TDnsPolicyType][]cloudprovider.TDnsPolicyTypeValue{
+		cloudprovider.DnsPolicyTypeByGeoLocation: cloudprovider.AwsGeoLocations,
+		cloudprovider.DnsPolicyTypeLatency:       cloudprovider.AwsRegions,
+	}
 }
 
 func (self *SAwsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, input cloudprovider.SCloudaccountCredential) (cloudprovider.SCloudaccount, error) {

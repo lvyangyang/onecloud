@@ -307,3 +307,13 @@ func (self *SAliyunProvider) GetSamlEntityId() string {
 func (self *SAliyunProvider) GetSamlSpInitiatedLoginUrl(idpName string) string {
 	return ""
 }
+
+func (self *SAliyunProvider) GetICloudDnsZones() ([]cloudprovider.ICloudDnsZone, error) {
+	return self.client.GetICloudDnsZones()
+}
+func (self *SAliyunProvider) GetICloudDnsZoneById(id string) (cloudprovider.ICloudDnsZone, error) {
+	return self.client.GetICloudDnsZoneById(id)
+}
+func (self *SAliyunProvider) CreateICloudDnsZone(opts *cloudprovider.SDnsZoneCreateOptions) (cloudprovider.ICloudDnsZone, error) {
+	return self.client.CreateICloudDnsZone(opts)
+}
