@@ -17,8 +17,12 @@ package compute
 import "yunion.io/x/onecloud/pkg/apis"
 
 const (
-	VPC_PEERING_CONNECTION_STATUS_CREATE_FAILED = "create_failed"
-	VPC_PEERING_CONNECTION_STATUS_DELETE_FAILED = "delete_failed"
+	VPC_PEERING_CONNECTION_STATUS_CREATING       = "creating"
+	VPC_PEERING_CONNECTION_STATUS_CREATE_FAILED  = "create_failed"
+	VPC_PEERING_CONNECTION_STATUS_DELETE_FAILED  = "delete_failed"
+	VPC_PEERING_CONNECTION_STATUS_PENDING_ACCEPT = "pending-acceptance"
+	VPC_PEERING_CONNECTION_STATUS_ACTIVE         = "active"
+	VPC_PEERING_CONNECTION_STATUS_UNKNOWN        = "unknown"
 )
 
 type VpcPeeringConnectionDetails struct {
@@ -27,10 +31,14 @@ type VpcPeeringConnectionDetails struct {
 
 type VpcPeeringConnectionCreateInput struct {
 	apis.EnabledStatusInfrasResourceBaseCreateInput
+	SVpcResourceBase
+	PeerVpcId string
 }
 
 type VpcPeeringConnectionListInput struct {
 	apis.EnabledStatusInfrasResourceBaseListInput
+	VpcId     string
+	PeerVpcId string
 }
 
 type VpcPeeringConnectionUpdateInput struct {

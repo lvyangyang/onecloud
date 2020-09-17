@@ -17,10 +17,12 @@ package aws
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -214,6 +216,176 @@ func (self *SVpc) fetchSecurityGroups() error {
 	for i := 0; i < len(secgroups); i++ {
 		secgroups[i].vpc = self
 		self.secgroups[i] = &secgroups[i]
+	}
+	return nil
+}
+
+func (self *SVpc) GetICloudVpcPeeringConnections() ([]cloudprovider.ICloudVpcPeeringConnection, error) {
+	svpcPCs, err := self.getSVpcPeeringConnections()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.getSVpcPeeringConnections()")
+	}
+	ret := []cloudprovider.ICloudVpcPeeringConnection{}
+	for i := range svpcPCs {
+		if svpcPCs[i].GetRequestVpcId() != self.VpcId {
+			continue
+		}
+		ret = append(ret, svpcPCs[i])
+	}
+	return ret, nil
+}
+func (self *SVpc) GetICloudVpcPeeringConnectionById(id string) (cloudprovider.ICloudVpcPeeringConnection, error) {
+	ivpcPCs, err := self.GetICloudVpcPeeringConnections()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.GetICloudVpcPeeringConnections()")
+	}
+	for i := range ivpcPCs {
+		if ivpcPCs[i].GetId() == id {
+			return ivpcPCs[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+func (self *SVpc) CreateICloudVpcPeeringConnection(opts *cloudprovider.VpcPeeringConnectionCreateOptions) (cloudprovider.ICloudVpcPeeringConnection, error) {
+	return self.createSVpcPeeringConnection(opts)
+}
+func (self *SVpc) AcceptICloudVpcPeeringConnection(id string) error {
+	return self.acceptSVpcPeeringConnection(id)
+}
+
+func (self *SVpc) CreateRouteToVpcPeeringConnection(cidrBlocks, peerId string) error {
+	RouteTables, err := self.region.GetRouteTables(self.GetId(), true)
+	if err != nil {
+		return errors.Wrapf(err, "self.region.GetRouteTables(%s, true)", self.GetId())
+	}
+	if len(RouteTables) != 1 {
+		return errors.Wrapf(fmt.Errorf("get main routetable for vpc %s failed", self.GetId()), "lne(RouteTables)!=1,RouteTables:%s", jsonutils.Marshal(RouteTables).String())
+	}
+	mainRoutetable := RouteTables[0]
+	splitedcidrBlocks := strings.Split(cidrBlocks, ",")
+	for i := range splitedcidrBlocks {
+		// remove occupied route
+		for j := range mainRoutetable.Routes {
+			if mainRoutetable.Routes[j].DestinationCIDRBlock == splitedcidrBlocks[i] {
+				self.region.RemoveRoute(mainRoutetable.GetId(), splitedcidrBlocks[i])
+			}
+		}
+		err = self.region.CreateRoute(mainRoutetable.GetId(), splitedcidrBlocks[i], peerId)
+		if err != nil {
+			return errors.Wrapf(err, "self.region.AddRoute(%s,%s,%s)", mainRoutetable.GetId(), splitedcidrBlocks[i], peerId)
+		}
+	}
+	return nil
+}
+
+func (self *SVpc) DeleteVpcPeeringConnectionRoute(vpcPeeringConnectionId string) error {
+	RouteTables, err := self.region.GetRouteTables(self.GetId(), true)
+	if err != nil {
+		return errors.Wrapf(err, "self.region.GetRouteTables(%s, true)", self.GetId())
+	}
+	for i := range RouteTables {
+		for j := range RouteTables[i].Routes {
+			if RouteTables[i].Routes[j].VpcPeeringConnectionID != nil &&
+				*RouteTables[i].Routes[j].VpcPeeringConnectionID == vpcPeeringConnectionId {
+				err := self.region.RemoveRoute(RouteTables[i].GetId(), RouteTables[i].Routes[j].DestinationCIDRBlock)
+				if err != nil {
+					return errors.Wrapf(err, "self.region.AddRoute(%s,%s)", RouteTables[i].GetId(), RouteTables[i].Routes[j].DestinationCIDRBlock)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (self *SVpc) GetOwnerAccountId() string {
+	identity, err := self.region.client.GetCallerIdentity()
+	if err != nil {
+		log.Errorf(err.Error() + "self.region.client.GetCallerIdentity()")
+	}
+	return identity.Account
+}
+
+func (self *SVpc) getSVpcPeeringConnections() ([]*SVpcPeeringConnection, error) {
+	vpcPCs, err := self.region.DescribeVpcPeeringConnections(self.VpcId)
+	if err != nil {
+		return nil, errors.Wrap(err, "self.region.DescribeVpcPeeringConnections()")
+	}
+	ivpcPCs := []*SVpcPeeringConnection{}
+	for i := range vpcPCs {
+		if vpcPCs[i].Status.Code != nil && (*vpcPCs[i].Status.Code == ec2.VpcPeeringConnectionStateReasonCodeDeleted ||
+			*vpcPCs[i].Status.Code == ec2.VpcPeeringConnectionStateReasonCodeDeleting) {
+			continue
+		}
+		svpcPC := SVpcPeeringConnection{}
+		svpcPC.vpc = self
+		svpcPC.vpcPC = vpcPCs[i]
+		ivpcPCs = append(ivpcPCs, &svpcPC)
+	}
+	return ivpcPCs, nil
+}
+
+func (self *SVpc) getSVpcPeeringConnectionById(id string) (*SVpcPeeringConnection, error) {
+	ivpcPCs, err := self.getSVpcPeeringConnections()
+	if err != nil {
+		return nil, errors.Wrap(err, "self.getSVpcPeeringConnections()")
+	}
+	for i := range ivpcPCs {
+		if ivpcPCs[i].GetId() == id {
+			return ivpcPCs[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SVpc) createSVpcPeeringConnection(opts *cloudprovider.VpcPeeringConnectionCreateOptions) (*SVpcPeeringConnection, error) {
+	svpcPC := SVpcPeeringConnection{}
+	vpcPC, err := self.region.CreateVpcPeeringConnection(self.VpcId, opts)
+	if err != nil {
+		return nil, errors.Wrapf(err, " self.region.CreateVpcPeeringConnection(%s,%s)", self.VpcId, jsonutils.Marshal(opts).String())
+	}
+	svpcPC.vpc = self
+	svpcPC.vpcPC = vpcPC
+	err = cloudprovider.WaitMultiStatus(&svpcPC, []string{api.VPC_PEERING_CONNECTION_STATUS_PENDING_ACCEPT,
+		api.VPC_PEERING_CONNECTION_STATUS_ACTIVE,
+		api.VPC_PEERING_CONNECTION_STATUS_UNKNOWN}, 5*time.Second, 60*time.Second)
+	if err != nil {
+		return nil, errors.Wrap(err, "cloudprovider.WaitMultiStatus")
+	}
+	if svpcPC.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_UNKNOWN {
+		return nil, errors.Wrapf(cloudprovider.ErrInvalidStatus, "vpcpeeringconnection:%s  invalidate status", jsonutils.Marshal(svpcPC.vpcPC).String())
+	}
+	return &svpcPC, nil
+}
+
+func (self *SVpc) acceptSVpcPeeringConnection(id string) error {
+	svpcPC, err := self.getSVpcPeeringConnectionById(id)
+	if err != nil {
+		return errors.Wrapf(err, "self.getSVpcPeeringConnectionById(%s)", id)
+	}
+	//	其他region 创建的连接请求,有短暂的provisioning状态
+	err = cloudprovider.WaitMultiStatus(svpcPC, []string{api.VPC_PEERING_CONNECTION_STATUS_ACTIVE,
+		api.VPC_PEERING_CONNECTION_STATUS_PENDING_ACCEPT,
+		api.VPC_PEERING_CONNECTION_STATUS_UNKNOWN}, 5*time.Second, 60*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "cloudprovider.WaitMultiStatus")
+	}
+	if svpcPC.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_UNKNOWN {
+		return errors.Wrapf(cloudprovider.ErrInvalidStatus, "vpcpeeringconnection:%s  invalidate status", jsonutils.Marshal(svpcPC.vpcPC).String())
+	}
+
+	if svpcPC.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_PENDING_ACCEPT {
+		_, err := self.region.AcceptVpcPeeringConnection(id)
+		if err != nil {
+			return errors.Wrapf(err, "self.region.AcceptVpcPeeringConnection(%s)", id)
+		}
+	}
+	err = cloudprovider.WaitMultiStatus(svpcPC, []string{api.VPC_PEERING_CONNECTION_STATUS_ACTIVE,
+		api.VPC_PEERING_CONNECTION_STATUS_UNKNOWN}, 5*time.Second, 60*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "cloudprovider.WaitMultiStatus")
+	}
+	if svpcPC.GetStatus() == api.VPC_PEERING_CONNECTION_STATUS_UNKNOWN {
+		return errors.Wrapf(cloudprovider.ErrInvalidStatus, "vpcpeeringconnection:%s  invalidate status", jsonutils.Marshal(svpcPC.vpcPC).String())
 	}
 	return nil
 }

@@ -589,6 +589,22 @@ func (self *SVpc) markAllNetworksUnknown(userCred mcclient.TokenCredential) erro
 	return nil
 }
 
+func (self *SVpc) SyncRouteTables(ctx context.Context, userCred mcclient.TokenCredential) error {
+	ivpc, err := self.GetIVpc()
+	if err != nil {
+		return errors.Wrap(err, "self.GetIVpc()")
+	}
+	routeTables, err := ivpc.GetIRouteTables()
+	if err != nil {
+		return errors.Wrapf(err, "GetIRouteTables for vpc %s failed", ivpc.GetId())
+	}
+	_, _, result := RouteTableManager.SyncRouteTables(ctx, userCred, self, routeTables, self.GetCloudprovider())
+	if result.IsError() {
+		return errors.Wrapf(result.AllError(), "RouteTableManager.SyncRouteTables(%s,%s)", jsonutils.Marshal(self).String(), jsonutils.Marshal(routeTables).String())
+	}
+	return nil
+}
+
 func (manager *SVpcManager) InitializeData() error {
 	if vpcObj, err := manager.FetchById(api.DEFAULT_VPC_ID); err != nil {
 		if err == sql.ErrNoRows {
@@ -800,6 +816,24 @@ func (self *SVpc) Delete(ctx context.Context, userCred mcclient.TokenCredential)
 }
 
 func (self *SVpc) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	vpcPC := SVpcPeeringConnection{}
+	err := VpcPeeringConnectionManager.Query().Equals("vpc_id", self.Id).First(&vpcPC)
+	if err == nil {
+		return httperrors.NewNotSupportedError("vpc %s is connected by peerconnection %s", self.Id, vpcPC.Id)
+	} else {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return httperrors.NewGeneralError(err)
+		}
+	}
+
+	err = VpcPeeringConnectionManager.Query().Equals("peer_vpc_id", self.Id).First(&vpcPC)
+	if err == nil {
+		return httperrors.NewNotSupportedError("vpc %s is connected by peerconnection %s", self.Id, vpcPC.Id)
+	} else {
+		if errors.Cause(err) != sql.ErrNoRows {
+			return httperrors.NewGeneralError(err)
+		}
+	}
 	if self.Id != api.DEFAULT_VPC_ID {
 		return self.StartDeleteVpcTask(ctx, userCred)
 	} else {
@@ -1402,7 +1436,7 @@ func (self *SVpc) SyncVpcPeeringConnections(ctx context.Context, userCred mcclie
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudPeerConnection(ctx, userCred, commonext[i], provider)
+		err = commondb[i].SyncWithCloudPeerConnection(ctx, userCred, commonext[i], provider)
 		if err != nil {
 			result.UpdateError(err)
 			continue
@@ -1430,7 +1464,16 @@ func (self *SVpc) newFromCloudPeerConnection(ctx context.Context, userCred mccli
 	peer.ExternalId = ext.GetGlobalId()
 	peer.Status = ext.GetStatus()
 	peer.VpcId = self.Id
+	peer.Enabled = "fasle"
+	if ext.GetEnabled() {
+		peer.Enabled = "true"
+	}
 	peer.PeerVpcId = ext.GetPeerVpcId()
+	peervpc, err := db.FetchByExternalId(VpcManager, ext.GetPeerVpcId())
+	if err == nil {
+		peer.PeerVpcId = peervpc.GetId()
+	}
+
 	manager := self.GetCloudprovider()
 	peerVpc, _ := db.FetchByExternalIdAndManagerId(VpcManager, peer.PeerVpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		managerQ := CloudproviderManager.Query("id").Equals("provider", manager.Provider)
@@ -1440,7 +1483,7 @@ func (self *SVpc) newFromCloudPeerConnection(ctx context.Context, userCred mccli
 		peer.PeerVpcId = peerVpc.GetId()
 	}
 	peer.PeerAccountId = ext.GetPeerAccountId()
-	err := VpcPeeringConnectionManager.TableSpec().Insert(ctx, peer)
+	err = VpcPeeringConnectionManager.TableSpec().Insert(ctx, peer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Insert")
 	}

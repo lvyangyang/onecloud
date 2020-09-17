@@ -204,6 +204,8 @@ type ICloudProviderFactory interface {
 
 	IsSystemCloudpolicyUnified() bool // 国内国外权限是否一致
 
+	IsSupportVpcPeering(bool, bool) bool
+
 	GetSupportedDnsZoneTypes() []TDnsZoneType
 	GetSupportedDnsTypes() map[TDnsZoneType][]TDnsType
 	GetSupportedDnsPolicyTypes() map[TDnsZoneType][]TDnsPolicyType
@@ -596,6 +598,10 @@ func (factory *baseProviderFactory) IsSupportCreateCloudgroup() bool {
 
 func (factory *baseProviderFactory) IsSystemCloudpolicyUnified() bool {
 	return true
+}
+
+func (factory *baseProviderFactory) IsSupportVpcPeering(CrossCloud bool, CrossRegion bool) bool {
+	return false
 }
 
 func (factory *baseProviderFactory) GetSupportedDnsZoneTypes() []TDnsZoneType {
