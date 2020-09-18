@@ -452,6 +452,8 @@ type ICloudVpc interface {
 	CreateRouteToVpcPeeringConnection(cidrBlock, peerId string) error
 	DeleteVpcPeeringConnectionRoute(vpcPeeringConnectionId string) error
 	GetOwnerAccountId() string
+
+	ProposeAttachToICloudInterVpcNetwork(*SInterVpcNetwork) error
 }
 
 type ICloudWire interface {
@@ -1066,5 +1068,13 @@ type ICloudVpcPeeringConnection interface {
 	GetPeerAccountId() string
 	GetEnabled() bool
 
+	Delete() error
+}
+
+type ICloudInterVpcNetwork interface {
+	ICloudResource
+	GetVpcs() []SInterVpcNetworkVpc
+	AddVpc(*SInterVpcNetworkVpc) error
+	RemoveVpc(*SInterVpcNetworkVpc) error
 	Delete() error
 }

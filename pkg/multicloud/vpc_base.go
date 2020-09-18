@@ -55,3 +55,7 @@ func (self *SVpc) CreateRouteToVpcPeeringConnection(cidrBlock, peerId string) er
 func (self *SVpc) DeleteVpcPeeringConnectionRoute(vpcPeeringConnectionId string) error {
 	return errors.Wrapf(cloudprovider.ErrNotImplemented, "DeleteVpcPeeringConnectionRoute")
 }
+
+func (self *SVpc) ProposeAttachToICloudInterVpcNetwork(opts *cloudprovider.SInterVpcNetwork) error {
+	return errors.Wrapf(cloudprovider.ErrNotImplemented, "ProposeAttachToICloudInterVpcNetwork")
+}

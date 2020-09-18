@@ -3184,3 +3184,66 @@ func (self *SCloudaccount) SyncDnsZones(ctx context.Context, userCred mcclient.T
 
 	return localZones, remoteZones, result
 }
+
+func (self *SCloudaccount) SyncInterVpcNetwork(ctx context.Context, userCred mcclient.TokenCredential, interVpcNetworks []cloudprovider.ICloudInterVpcNetwork) ([]SInterVpcNetwork, []cloudprovider.ICloudInterVpcNetwork, compare.SyncResult) {
+	lockman.LockRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-interVpcNetwork", self.Id))
+	defer lockman.ReleaseRawObject(ctx, self.Keyword(), fmt.Sprintf("%s-interVpcNetwork", self.Id))
+
+	result := compare.SyncResult{}
+
+	localNetworks := []SInterVpcNetwork{}
+	remoteNetworkss := []cloudprovider.ICloudInterVpcNetwork{}
+
+	dbZones, err := self.GetDnsZoneCaches()
+	if err != nil {
+		result.Error(errors.Wrapf(err, "GetDnsZoneCaches"))
+		return nil, nil, result
+	}
+
+	removed := make([]SInterVpcNetwork, 0)
+	commondb := make([]SInterVpcNetwork, 0)
+	commonext := make([]cloudprovider.ICloudInterVpcNetwork, 0)
+	added := make([]cloudprovider.ICloudInterVpcNetwork, 0)
+
+	err = compare.CompareSets(dbZones, dnsZones, &removed, &commondb, &commonext, &added)
+	if err != nil {
+		result.Error(err)
+		return nil, nil, result
+	}
+
+	for i := 0; i < len(removed); i += 1 {
+		if len(removed[i].ExternalId) > 0 {
+			err = removed[i].syncRemove(ctx, userCred)
+			if err != nil {
+				result.DeleteError(err)
+				continue
+			}
+			result.Delete()
+		}
+	}
+
+	for i := 0; i < len(commondb); i += 1 {
+		err = commondb[i].SyncWithCloudDnsZone(ctx, userCred, commonext[i])
+		if err != nil {
+			result.UpdateError(errors.Wrapf(err, "SyncWithCloudDnsZone"))
+			continue
+		}
+
+		result.Update()
+	}
+
+	for i := 0; i < len(added); i += 1 {
+		dnsZone, isNew, err := DnsZoneManager.newFromCloudDnsZone(ctx, userCred, added[i], self)
+		if err != nil {
+			result.AddError(err)
+			continue
+		}
+		if isNew {
+			localZones = append(localZones, *dnsZone)
+			remoteZones = append(remoteZones, added[i])
+		}
+		result.Add()
+	}
+
+	return localZones, remoteZones, result
+}
