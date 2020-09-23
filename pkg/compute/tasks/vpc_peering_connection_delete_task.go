@@ -50,7 +50,7 @@ func (self *VpcPeeringConnectionDeleteTask) taskComplete(ctx context.Context, pe
 }
 
 func (self *VpcPeeringConnectionDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
-	peer := obj.(models.SVpcPeeringConnection)
+	peer := obj.(*models.SVpcPeeringConnection)
 
 	vpc, err := peer.GetVpc()
 	if err != nil {
@@ -61,6 +61,29 @@ func (self *VpcPeeringConnectionDeleteTask) OnInit(ctx context.Context, obj db.I
 	iVpc, err := vpc.GetIVpc()
 	if err != nil {
 		self.taskFailed(ctx, peer, errors.Wrapf(err, "GetIVpc"))
+		return
+	}
+
+	peerVpc, err := peer.GetPeerVpc()
+	if err != nil {
+		self.taskFailed(ctx, peer, errors.Wrapf(err, "GetVpc"))
+		return
+	}
+
+	ipeerVpc, err := peerVpc.GetIVpc()
+	if err != nil {
+		self.taskFailed(ctx, peer, errors.Wrapf(err, "GetIVpc"))
+		return
+	}
+
+	err = iVpc.DeleteVpcPeeringConnectionRoute(peer.ExternalId)
+	if err != nil {
+		self.taskFailed(ctx, peer, errors.Wrapf(err, "DeleteVpcPeeringConnectionRoute(%s)", peer.ExternalId))
+		return
+	}
+	err = ipeerVpc.DeleteVpcPeeringConnectionRoute(peer.ExternalId)
+	if err != nil {
+		self.taskFailed(ctx, peer, errors.Wrapf(err, "DeleteVpcPeeringConnectionRoute(%s)", peer.ExternalId))
 		return
 	}
 
@@ -77,6 +100,16 @@ func (self *VpcPeeringConnectionDeleteTask) OnInit(ctx context.Context, obj db.I
 	err = iPeer.Delete()
 	if err != nil {
 		self.taskFailed(ctx, peer, errors.Wrapf(err, "Delete"))
+		return
+	}
+	err = vpc.SyncRouteTables(ctx, self.GetUserCred())
+	if err != nil {
+		self.taskFailed(ctx, peer, errors.Wrapf(err, "vpc:%s.SyncRouteTables", jsonutils.Marshal(vpc).String()))
+		return
+	}
+	err = peerVpc.SyncRouteTables(ctx, self.GetUserCred())
+	if err != nil {
+		self.taskFailed(ctx, peer, errors.Wrapf(err, "vpc:%s.SyncRouteTables", jsonutils.Marshal(peerVpc).String()))
 		return
 	}
 
