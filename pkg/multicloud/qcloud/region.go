@@ -190,6 +190,12 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 	if loadbalancer.AddressType != api.LB_ADDR_TYPE_INTERNET {
 		params["SubnetId"] = loadbalancer.NetworkIDs[0]
 	}
+	i := 0
+	for k, v := range loadbalancer.Tags {
+		params[fmt.Sprintf("Tags.%d.TagKey", i)] = k
+		params[fmt.Sprintf("Tags.%d.TagValue", i)] = v
+		i++
+	}
 
 	resp, err := self.clbRequest("CreateLoadBalancer", params)
 	if err != nil {

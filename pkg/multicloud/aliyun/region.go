@@ -936,6 +936,7 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 	if err != nil {
 		return nil, err
 	}
+	//err = region.TagResources()
 	return iLoadbalancer, cloudprovider.WaitStatus(iLoadbalancer, api.LB_STATUS_ENABLED, time.Second*5, time.Minute*5)
 }
 
