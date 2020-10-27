@@ -131,6 +131,9 @@ func (manager *SDnsZoneManager) ValidateCreateData(ctx context.Context, userCred
 		if !strings.ContainsRune(input.Name, '.') {
 			return input, httperrors.NewNotSupportedError("top level public domain name %s not support", input.Name)
 		}
+		if strings.Count(input.Name, ".") > 1 {
+			return input, httperrors.NewNotSupportedError("only support second level public domain")
+		}
 	default:
 		return input, httperrors.NewInputParameterError("unknown zone type %s", input.ZoneType)
 	}
