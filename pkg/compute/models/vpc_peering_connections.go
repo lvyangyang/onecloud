@@ -368,6 +368,18 @@ func (self *SVpcPeeringConnection) SyncWithCloudPeerConnection(ctx context.Conte
 		self.ExternalId = ext.GetGlobalId()
 		self.ExtPeerVpcId = ext.GetPeerVpcId()
 		self.ExtPeerAccountId = ext.GetPeerAccountId()
+		vpc, err := self.GetVpc()
+		if err != nil {
+			return errors.Wrap(err, "GetVpc")
+		}
+		provider := vpc.GetCloudaccount().Provider
+		peerVpc, _ := db.FetchByExternalIdAndManagerId(VpcManager, self.ExtPeerVpcId, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+			managerQ := CloudproviderManager.Query("id").Equals("provider", provider)
+			return q.In("manager_id", managerQ.SubQuery())
+		})
+		if peerVpc != nil {
+			self.PeerVpcId = peerVpc.GetId()
+		}
 		return nil
 	})
 	if err != nil {
